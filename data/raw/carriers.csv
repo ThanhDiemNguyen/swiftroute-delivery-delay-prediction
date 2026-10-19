@@ -1,0 +1,9 @@
+carrier_id,carrier_name,tier_coverage,reliability_score,capacity_utilisation,avg_delay_mins,n_active_routes
+C01,FastTrack,all,0.9508,0.5926,78.2,17
+C02,PrimeMove,all,0.9049,0.6838,82.2,25
+C03,SureDeliver,all,0.8605,0.6675,35.0,8
+C04,QuickHaul,all,0.8332,0.7361,29.7,11
+C05,NorthernPost,express_only,0.764,0.815,34.9,15
+C06,IslandEx,standard_economy,0.7111,0.8689,77.0,16
+C07,GreenRoute,all,0.6358,0.8606,45.7,15
+C08,BudgetShip,all,0.5871,0.9049,90.0,11
