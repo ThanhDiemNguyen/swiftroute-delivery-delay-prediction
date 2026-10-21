@@ -83,6 +83,7 @@ def plot_delay_factors(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
         ax.set_ylabel("Delay Rate (%)")
     
     fig.tight_layout()
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig.savefig(FIGURES_DIR / "delay_factors.png", dpi=150)
     plt.show()
 
