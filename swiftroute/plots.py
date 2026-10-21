@@ -88,3 +88,47 @@ def plot_delay_factors(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
     plt.show()
 
     return df
+
+
+def plot_risky_routes_carriers(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    shipments, routes = data["shipments"], data["routes"]
+
+    # Delay rate and number of shipments per route
+    route_risk = (
+        shipments.groupby(["route_id", "origin_region", "dest_region"], as_index=False)
+        .agg(delay_rate=("is_delayed", "mean"), n=("is_delayed", "size"))
+    )
+    route_risk["route"] = route_risk["origin_region"] + " → " + route_risk["dest_region"] + " (" + route_risk["route_id"].astype(str) + ")"
+    top10 = route_risk[route_risk["n"] >= 30].nlargest(10, "delay_rate")
+
+    # Delay rate by carrier
+    carrier_risk = (shipments.groupby("carrier_id")["is_delayed"].mean().sort_values(ascending=False).reset_index(name="delay_rate"))
+
+    # Delay rate by origin and destination
+    pivot = shipments.pivot_table(index="origin_region", columns="dest_region", values="is_delayed", aggfunc="mean")
+
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+
+    # Top 10 highest-delay routes
+    sns.barplot(data=top10, x="delay_rate", y="route", errorbar=None, ax=axes[0])
+    axes[0].set_title("Top 10 Highest-Delay Routes (n >= 30)")
+    axes[0].xaxis.set_major_formatter(PercentFormatter(1.0))
+    axes[0].set_xlabel("Delay Rate (%)")
+
+    # Delay rate by carrier
+    sns.barplot(data=carrier_risk, x="carrier_id", y="delay_rate", errorbar=None, ax=axes[1])
+    axes[1].set_title("Delay Rate by Carrier")
+    axes[1].yaxis.set_major_formatter(PercentFormatter(1.0))
+    axes[1].set_ylabel("Delay Rate (%)")
+
+    # Origin x destination heatmap
+    sns.heatmap(pivot, annot=True, fmt=".1%", cmap="Reds", ax=axes[2])
+    axes[2].set_title("Delay Rate by Origin and Destination")
+    axes[2].tick_params(axis="x", rotation=45)
+
+    fig.tight_layout()
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(FIGURES_DIR / "risky_routes_carriers.png", dpi=150)
+    plt.show()
+
+    return route_risk
