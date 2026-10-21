@@ -66,7 +66,9 @@ def join_routes_carriers(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 def join_weather(df: pd.DataFrame, weather: pd.DataFrame) -> pd.DataFrame:
     matches = []
-
+    df = df.copy()
+    df["weather_ends"] = 0
+    
     # Check weather events at origin and destination
     for region in ["origin_region", "dest_region"]:
         hit = df[["shipment_id", "pickup_date", region]].merge(weather, left_on=region, right_on="region")
@@ -75,6 +77,9 @@ def join_weather(df: pd.DataFrame, weather: pd.DataFrame) -> pd.DataFrame:
         hit = hit[hit["pickup_date"].between(hit["start_date"], hit["end_date"])]
 
         matches.append(hit[["shipment_id", "severity"]])
+
+
+        df["weather_ends"] += df["shipment_id"].isin(hit["shipment_id"]).astype(int)
 
     # Maximum severity across matching events
     severity = (pd.concat(matches).groupby("shipment_id")["severity"].max())

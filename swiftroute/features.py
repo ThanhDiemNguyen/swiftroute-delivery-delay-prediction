@@ -10,9 +10,9 @@ def add_features(master: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={"weather_flag": "weather_affected"})
 
     # 2. weather_both_ends: both origin AND destination affected
-    df["weather_both_ends"] = (df["origin_region"].isin(df.loc[df["weather_affected"], "origin_region"]) &
-                                df["dest_region"].isin(df.loc[df["weather_affected"], "dest_region"])).astype(int)   
-
+    df["weather_both_ends"] = (df["weather_ends"] == 2).astype(int)
+    df = df.drop(columns=["weather_ends"])
+    
     # 3. is_winter: pickup in Nov-Feb (higher disruption risk)
     df["is_winter"] = df["pickup_date"].dt.month.isin([11, 12, 1, 2]).astype(int)
 
