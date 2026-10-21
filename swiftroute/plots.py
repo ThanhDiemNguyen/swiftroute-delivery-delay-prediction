@@ -1,6 +1,7 @@
 from swiftroute.config import FIGURES_DIR
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import pandas as pd
 import seaborn as sns
 
@@ -43,3 +44,46 @@ def plot_key_distributions(data: dict[str, pd.DataFrame]) -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig.savefig(FIGURES_DIR / "key_distributions.png", dpi=150)
     plt.show()
+
+def plot_delay_factors(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    shipments, routes, carriers, weather = data["shipments"], data["routes"], data["carriers"], data["weather"]
+    df = shipments.merge(routes[["route_id", "distance_km"]], on="route_id").merge(carriers[["carrier_id", "reliability_score"]], on="carrier_id")
+    
+    # Weather flag: any event in origin or destination region on the pickup date
+    def check_weather(region_col: str) -> pd.Series:
+        hit = df[["shipment_id", region_col, "pickup_date"]].merge(weather, left_on=region_col, right_on="region")
+        hit = hit[(hit["start_date"] <= hit["pickup_date"]) &(hit["pickup_date"] <= hit["end_date"])]
+        return df["shipment_id"].isin(hit["shipment_id"])
+
+    df["weather_flag"] = check_weather("origin_region") | check_weather("dest_region")
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+
+    # Service tier
+    sns.barplot(data=df, x="service_tier", y="is_delayed", errorbar=None, ax=axes[0, 0])
+    axes[0, 0].set_title("Delay Rate by Service Tier")
+
+    # Carrier reliability (one point per carrier)
+    c = df.groupby("carrier_id").agg(rate=("is_delayed", "mean"), rel=("reliability_score", "first"))
+    sns.regplot(data=c, x="rel", y="rate", ax=axes[0, 1])
+    axes[0, 1].set_title("Delay Rate vs Carrier Reliability")
+
+    # Route distance
+    df["distance_group"] = pd.qcut(df["distance_km"], 5)
+    sns.barplot(data=df, x="distance_group", y="is_delayed", errorbar=None, ax=axes[1, 0])
+    axes[1, 0].tick_params(axis="x", rotation=30)
+    axes[1, 0].set_title("Delay Rate by Route Distance")
+
+    # Weather
+    sns.barplot(data=df, x="weather_flag", y="is_delayed", errorbar=None, ax=axes[1, 1])
+    axes[1, 1].set_title("Delay Rate: Weather vs No Weather")
+    
+    for ax in axes.flat:
+        ax.yaxis.set_major_formatter(PercentFormatter(1.0))
+        ax.set_ylabel("Delay Rate (%)")
+    
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "delay_factors.png", dpi=150)
+    plt.show()
+
+    return df
