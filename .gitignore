@@ -20,3 +20,4 @@ mlruns/
 # Generated data (raw data stays tracked)
 data/interim/
 data/processed/*.pkl
+*.pkl

@@ -5,6 +5,8 @@ from matplotlib.ticker import PercentFormatter
 import pandas as pd
 import seaborn as sns
 
+from sklearn.metrics import roc_curve
+
 
 def plot_key_distributions(data: dict[str, pd.DataFrame]) -> None:
     shipments, carriers, routes = data["shipments"], data["carriers"], data["routes"]
@@ -132,3 +134,55 @@ def plot_risky_routes_carriers(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
     plt.show()
 
     return route_risk
+
+
+def plot_model_diagnostics(results: dict, y_val: pd.Series, best_name: str) -> None:
+    best_model = results[best_name]["model"]
+    best_prob = results[best_name]["val_prob"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(20, 7))
+
+    # 1. ROC curves for all models
+    for name, result in results.items():
+        fpr, tpr, _ = roc_curve(y_val, result["val_prob"])
+        axes[0].plot(fpr, tpr, label=f"{name} (AUC={result['val_auc']:.3f})")
+
+    axes[0].plot([0, 1], [0, 1], "k--", label="Random")
+    axes[0].set_title("ROC Curves")
+    axes[0].set_xlabel("FP Rate")
+    axes[0].set_ylabel("TP Rate")
+    axes[0].legend()
+
+    # 2. Score distribution by delay=0 vs delay=1
+    for actual, label in [(0, "On time"), (1, "Delayed")]:
+        axes[1].hist(best_prob[y_val.to_numpy() == actual], bins=25, density=True, alpha=0.6, label=label)
+
+    axes[1].set_title(f"Score distribution by delay=0 vs delay=1 - {best_name}")
+    axes[1].set_xlabel("Predicted Delay Probability")
+    axes[1].set_ylabel("Density")
+    axes[1].legend()
+
+    # 3. Feature importance / coefficients (top 15)
+    names = best_model.named_steps["preprocess"].get_feature_names_out()
+    names = [name.split("__", 1)[-1] for name in names]
+
+    model = best_model.named_steps["model"]
+
+    if hasattr(model, "coef_"):
+        importance = pd.Series(model.coef_[0], index=names)
+        title = "Coefficients (top 15)"
+    else:
+        importance = pd.Series(model.feature_importances_, index=names)
+        title = "Feature importances (top 15)"
+
+    top15 = importance.loc[importance.abs().nlargest(15).index].sort_values()
+
+    top15.plot(kind="barh", ax=axes[2])
+    axes[2].axvline(0, color="black", linewidth=0.8)
+    axes[2].set_title(f"{title} - {best_name}")
+    axes[2].set_xlabel("Coefficient" if hasattr(model, "coef_") else "Importance")
+
+    fig.tight_layout()
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(FIGURES_DIR / "model_diagnostics.png", dpi=150)
+    plt.show()
